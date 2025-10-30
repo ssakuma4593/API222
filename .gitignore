@@ -1,0 +1,12 @@
+# Local data files (kept out of git)
+data/
+
+# Optionally ignore any Excel files in root
+/*.xlsx
+
+# macOS metadata
+.DS_Store
+
+# Python virtual environment
+.venv/
+
