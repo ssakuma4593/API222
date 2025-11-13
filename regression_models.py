@@ -32,8 +32,43 @@ class TerrorismRegressionModels:
         regression_df['severity'] = regression_df['nkill'].fillna(0) + regression_df['nwound'].fillna(0)
         y = regression_df['severity']
         
-        # Drop target and identifiers (if any)
-        X = regression_df.drop(columns=['severity', 'nkill', 'nwound'])
+        # Drop target, outcome variables, identifiers, and unstructured text to prevent data leakage
+        columns_to_drop = [
+            'severity',           # Target variable
+            'total_casualties',   # Same as target (nkill + nwound)
+            'eventid',            # Identifier, not a feature
+            'summary',            # Unstructured text, not useful as a feature
+        ]
+        
+        # Drop citation columns (scite1, scite2, scite3) - unstructured text
+        for col in regression_df.columns:
+            if col.startswith('scite'):
+                columns_to_drop.append(col)
+        
+        # Drop all columns that start with 'nkill' or 'nwound' (all casualty-related)
+        # These include: nkill, nwound, nkillter, nkillus, nwoundte, nwoundus, etc.
+        for col in regression_df.columns:
+            if col.startswith('nkill') or col.startswith('nwound'):
+                columns_to_drop.append(col)
+        
+        # Find and drop any other columns that might be outcomes
+        # Look for columns with names suggesting they're derived from casualties
+        outcome_keywords = ['casualty', 'death', 'fatal']
+        for col in regression_df.columns:
+            col_lower = col.lower()
+            if any(keyword in col_lower for keyword in outcome_keywords):
+                if col not in columns_to_drop:
+                    # Check if it's an aggregated/derived column
+                    if any(agg in col_lower for agg in ['sum', 'total', 'count', 'mean', 'avg', 'max', 'min']):
+                        columns_to_drop.append(col)
+        
+        # Remove duplicates and only drop columns that exist
+        columns_to_drop = list(set([col for col in columns_to_drop if col in regression_df.columns]))
+        
+        if columns_to_drop:
+            print(f"Dropping {len(columns_to_drop)} columns to prevent data leakage: {columns_to_drop}")
+        
+        X = regression_df.drop(columns=columns_to_drop)
         
         # Encode categorical variables
         # Turn all non-numeric columns into dummy/indicator variables
