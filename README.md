@@ -53,3 +53,63 @@ python gtd_cleaner.py \
 ```
 
 Note: The `data/` directory is ignored by git, so the generated `data/gtd_cleaned.csv` will not be committed.
+
+## World Map Visualization
+<img width="1816" height="834" alt="Screenshot 2025-11-12 at 11 46 26 PM" src="https://github.com/user-attachments/assets/034d0ba1-21ea-4a62-b71c-baa4e28e1194" />
+
+
+The repository includes an interactive world map visualization that displays terrorist attack locations with bubble sizes and colors representing attack severity.
+
+### Generating the Map
+
+To create the interactive world map visualization:
+
+```bash
+python3 world_map_visualization.py
+```
+
+This will:
+- Load the cleaned terrorism data from `data/gtd_cleaned.csv`
+- Filter and prepare data with valid coordinates
+- Generate an interactive HTML map file: `world_map_attacks.html`
+
+### Viewing the Map
+
+**Option 1: Open directly**
+```bash
+open world_map_attacks.html
+```
+
+**Option 2: Double-click** the `world_map_attacks.html` file in Finder
+
+**Option 3: Drag and drop** the file into any web browser window
+
+**Option 4: Right-click** → "Open With" → Choose your browser (Chrome, Firefox, Safari, etc.)
+
+### Interacting with the Map
+
+Once the map is open in your browser, you can:
+
+- **Zoom**: Use your mouse wheel or trackpad pinch gesture to zoom in/out
+- **Pan**: Click and drag to move around the map
+- **Hover**: Hover over any bubble to see attack details:
+  - Location (city and country)
+  - Severity score
+  - Year of attack
+  - Additional metadata
+- **Color Scale**: The color bar on the right shows the severity scale (yellow = low, red = high)
+- **Bubble Size**: Larger bubbles indicate higher severity attacks
+
+### Map Features
+
+- **4,925 attacks** across **80 countries** visualized
+- **Bubble size and color** both represent attack severity
+- **Interactive tooltips** with detailed attack information
+- **Natural Earth projection** for accurate geographic representation
+- **Responsive design** that works in all modern web browsers
+
+### Requirements
+
+The visualization requires:
+- Python 3.6+
+- `plotly>=5.18.0` (install via `pip install -r requirements.txt`)
