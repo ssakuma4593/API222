@@ -1,0 +1,43 @@
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/site-packages/sklearn/linear_model/_coordinate_descent.py:695: ConvergenceWarning: Objective did not converge. You might want to increase the number of iterations, check the scale of the features or consider increasing regularisation. Duality gap: 2.373e+01, tolerance: 2.023e+01
+  model = cd_fast.enet_coordinate_descent(
+/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/site-packages/sklearn/linear_model/_coordinate_descent.py:695: ConvergenceWarning: Objective did not converge. You might want to increase the number of iterations, check the scale of the features or consider increasing regularisation. Duality gap: 2.374e+01, tolerance: 2.023e+01
+  model = cd_fast.enet_coordinate_descent(
+Starting data preprocessing...
+Performing basic data cleaning...
+Removed 35 records without valid coordinates
+Final dataset: 4,925 records
+
+==================================================
+Fitting Linear Regression Model
+==================================================
+Preparing data for regression analysis...
+Dropping 12 columns to prevent data leakage: ['nwoundus', 'nkillus', 'total_casualties', 'nkillter', 'nwound', 'eventid', 'scite1', 'nwoundte', 'nkill', 'scite2', 'summary', 'severity']
+Prepared 6941 features for regression
+Train R²: 0.9118
+Test R²: -30.9203
+
+==================================================
+Fitting LASSO Regression Model
+==================================================
+Preparing data for regression analysis...
+Dropping 12 columns to prevent data leakage: ['nwoundus', 'nkillus', 'total_casualties', 'nkillter', 'nwound', 'eventid', 'scite1', 'nwoundte', 'nkill', 'scite2', 'summary', 'severity']
+Prepared 6941 features for regression
+Best alpha: 0.306767
+Train R²: 0.5696
+Test R²: 0.0531
+
+Number of features selected: 141 out of 6941
+
+Top 10 most important features:
+  1. gname_Mouhadine: 1.8484
+  2. target1_Guesthouse: 1.6241
+  3. city_Daletti: 1.0952
+  4. city_Tekalgudem: 1.0393
+  5. city_Tchombangou: 0.9097
+  6. suicide: 0.9080
+  7. target1_Banyali Tchabi Civilians: 0.7350
+  8. gname_Taliban: 0.7017
+  9. weapsubtype1_txt_Vehicle: 0.6924
+  10. target1_Open-Air Market: 0.6798
+Visualization saved to lasso_features.png
+LASSO selected features saved to lasso_selected_features.csv
