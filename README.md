@@ -55,6 +55,8 @@ python gtd_cleaner.py \
 Note: The `data/` directory is ignored by git, so the generated `data/gtd_cleaned.csv` will not be committed.
 
 ## World Map Visualization
+<img width="1816" height="834" alt="Screenshot 2025-11-12 at 11 46 26 PM" src="https://github.com/user-attachments/assets/034d0ba1-21ea-4a62-b71c-baa4e28e1194" />
+
 
 The repository includes an interactive world map visualization that displays terrorist attack locations with bubble sizes and colors representing attack severity.
 
