@@ -67,7 +67,9 @@ Notes:
 - The `data/gtd_model_ready.csv` file is intended to be re‑used across multiple modeling experiments.
 
 ## World Map Visualization
-<img width="1816" height="834" alt="Screenshot 2025-11-12 at 11 46 26 PM" src="https://github.com/user-attachments/assets/034d0ba1-21ea-4a62-b71c-baa4e28e1194" />
+
+<img width="1469" height="833" alt="Screenshot 2025-11-26 at 5 02 48 PM" src="https://github.com/user-attachments/assets/5372df13-33c1-425c-96a3-4f58d5b6a81a" />
+<img width="1444" height="819" alt="Screenshot 2025-11-26 at 5 03 25 PM" src="https://github.com/user-attachments/assets/f4d43ed6-8582-4aa3-a271-6d067cba5bb1" />
 
 
 The repository includes an interactive world map visualization that displays terrorist attack locations with bubble sizes and colors representing attack severity.
