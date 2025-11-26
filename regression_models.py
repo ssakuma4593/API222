@@ -21,7 +21,14 @@ class TerrorismRegressionModels:
         self.feature_names = None
     
     def prepare_regression_data(self, df):
-        """Prepare data for regression analysis"""
+        """Prepare data for regression analysis.
+
+        Expects a \"model-ready\" dataframe where obvious data leakage
+        columns (identifiers, text, casualty components) have already
+        been removed. If you start from the raw cleaned GTD data,
+        prefer calling create_model_ready_dataset() once and then
+        re-using the saved CSV.
+        """
         print("Preparing data for regression analysis...")
         
         # Create a copy to avoid modifying original data
@@ -80,6 +87,98 @@ class TerrorismRegressionModels:
         
         print(f"Prepared {X.shape[1]} features for regression")
         return X, y
+
+    def create_model_ready_dataset(
+        self,
+        df: pd.DataFrame,
+        output_path: str = "data/gtd_model_ready.csv",
+        drop_high_cardinality: bool = True,
+    ) -> pd.DataFrame:
+        """Create and save a \"model‑ready\" dataset for both linear and tree models.
+
+        This:
+        - Constructs the severity target (nkill + nwound)
+        - Drops data‑leakage columns (casualty components, identifiers, text, derived outcomes)
+        - Optionally drops very high‑cardinality categoricals (e.g., group name, city)
+        - Keeps medium‑cardinality categoricals (attack type, weapon type, target type,
+          region, country) plus numeric features
+
+        The resulting CSV lives under data/ so it is ignored by git.
+        """
+        print("\n" + "=" * 60)
+        print("Creating model‑ready dataset (for linear and tree models)")
+        print("=" * 60)
+
+        model_df = df.copy()
+
+        # Ensure severity exists
+        if "severity" not in model_df.columns:
+            model_df["severity"] = model_df["nkill"].fillna(0) + model_df["nwound"].fillna(0)
+
+        columns_to_drop = []
+
+        # 1) Identifiers
+        if "eventid" in model_df.columns:
+            columns_to_drop.append("eventid")
+
+        # 2) Unstructured text and citations
+        if "summary" in model_df.columns:
+            columns_to_drop.append("summary")
+        for col in model_df.columns:
+            if col.startswith("scite"):
+                columns_to_drop.append(col)
+
+        # 3) Casualty components (data leakage)
+        for col in model_df.columns:
+            if col.startswith("nkill") or col.startswith("nwound"):
+                columns_to_drop.append(col)
+
+        # 4) Derived/aggregated outcome columns (death/casualty/fatal + agg words)
+        outcome_keywords = ["casualty", "death", "fatal"]
+        aggregation_terms = ["sum", "total", "count", "mean", "avg", "max", "min"]
+        for col in model_df.columns:
+            col_lower = col.lower()
+            if any(k in col_lower for k in outcome_keywords):
+                if col not in columns_to_drop and col not in ["severity"]:
+                    if any(a in col_lower for a in aggregation_terms):
+                        columns_to_drop.append(col)
+
+        # 5) Optional: drop very high‑cardinality categoricals that explode feature count
+        if drop_high_cardinality:
+            for candidate in ["gname", "city", "provstate", "location"]:
+                if candidate in model_df.columns:
+                    n_unique = model_df[candidate].nunique()
+                    if n_unique > 100:
+                        print(f"  Dropping high‑cardinality column '{candidate}' ({n_unique} unique values)")
+                        columns_to_drop.append(candidate)
+
+        # Always drop duplicate of severity if present
+        if "total_casualties" in model_df.columns:
+            columns_to_drop.append("total_casualties")
+
+        # De‑duplicate and filter to existing columns
+        columns_to_drop = sorted(set(c for c in columns_to_drop if c in model_df.columns))
+
+        if columns_to_drop:
+            print(f"\nDropping {len(columns_to_drop)} columns from model‑ready dataset:")
+            print(f"  {columns_to_drop}")
+
+        model_df = model_df.drop(columns=columns_to_drop)
+
+        # Simple summary
+        n_rows, n_cols = model_df.shape
+        cat_cols = model_df.select_dtypes(include=["object"]).columns.tolist()
+        num_cols = model_df.select_dtypes(include=[np.number]).columns.tolist()
+
+        print(f"\nFinal model‑ready shape: {n_rows} rows × {n_cols} columns")
+        print(f"  Numeric columns:     {len(num_cols)}")
+        print(f"  Categorical columns: {len(cat_cols)}")
+
+        # Save under data/ (ignored by git as per README)
+        model_df.to_csv(output_path, index=False)
+        print(f"\nSaved model‑ready CSV to: {output_path}")
+
+        return model_df
     
     def fit_linear_regression(self, df, test_size=0.2, random_state=42):
         """Fit a linear regression model to predict severity"""
