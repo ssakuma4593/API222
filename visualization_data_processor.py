@@ -92,17 +92,26 @@ class TerrorismDataProcessor:
         # Construct severity
         df["severity"] = df["nkill"].fillna(0) + df["nwound"].fillna(0)
 
-        # Select only the columns needed for the HTML map
+        # Select columns needed for the HTML map and analysis.
+        # All of these remain in their original, non one-hot-encoded form
+        # (e.g., country_txt is a string like "Niger").
         cols_needed = [
             "eventid",
             "iyear",
+            "imonth",
+            "iday",
             "city",
             "country_txt",
+            "region_txt",
             "latitude",
             "longitude",
             "severity",
             "gname",
             "attacktype1_txt",
+            "weaptype1_txt",
+            "targtype1_txt",
+            "success",
+            "suicide",
         ]
         existing = [c for c in cols_needed if c in df.columns]
         viz_df = df[existing].copy()
