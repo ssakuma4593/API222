@@ -5,6 +5,8 @@ Cleans and prepares data for geographic visualization
 
 import pandas as pd
 import numpy as np
+import os
+
 
 class TerrorismDataProcessor:
     def __init__(self):
@@ -55,6 +57,163 @@ class TerrorismDataProcessor:
         
         self.processed_data = cleaned_df
         return cleaned_df
+
+    def create_visualization_dataset_from_raw(
+        self,
+        input_path: str,
+        output_path: str = "data/gtd_visualization.csv",
+    ):
+        """Create a slim CSV specifically for the HTML world map visualization.
+
+        - Loads the raw Global Terrorism Database file (CSV/Excel)
+        - Applies coordinate and casualty cleaning via ``clean_data``
+        - Constructs ``severity = nkill + nwound``
+        - Keeps only the columns needed by the map:
+          ``eventid, iyear, city, country_txt, latitude, longitude,
+          severity, gname, attacktype1_txt``
+        """
+        print(f"Loading raw GTD data from {input_path} for visualization dataset...")
+
+        lower = input_path.lower()
+        if lower.endswith(".csv"):
+            df = pd.read_csv(input_path, low_memory=False)
+        elif lower.endswith(".xlsx") or lower.endswith(".xls"):
+            df = pd.read_excel(input_path)
+        else:
+            # Fallback: try CSV then Excel
+            try:
+                df = pd.read_csv(input_path, low_memory=False)
+            except Exception:
+                df = pd.read_excel(input_path)
+
+        # Reuse visualization cleaner (coords, nkill/nwound, totals, etc.)
+        df = self.clean_data(df)
+
+        # Construct severity
+        df["severity"] = df["nkill"].fillna(0) + df["nwound"].fillna(0)
+
+        # Select only the columns needed for the HTML map
+        cols_needed = [
+            "eventid",
+            "iyear",
+            "city",
+            "country_txt",
+            "latitude",
+            "longitude",
+            "severity",
+            "gname",
+            "attacktype1_txt",
+        ]
+        existing = [c for c in cols_needed if c in df.columns]
+        viz_df = df[existing].copy()
+
+        out_dir = os.path.dirname(output_path) or "."
+        os.makedirs(out_dir, exist_ok=True)
+        viz_df.to_csv(output_path, index=False)
+        print(f"Saved visualization CSV to: {output_path}")
+
+        return viz_df
+
+    def create_model_ready_from_raw(
+        self,
+        input_path: str,
+        output_path: str = "data/gtd_model_ready.csv",
+        drop_first: bool = True,
+    ):
+        """Load raw GTD file and create a model-ready CSV for regression models.
+
+        This:
+        - Starts from the original Global Terrorism Database CSV/Excel
+        - Drops high-cardinality categoricals (e.g., group name, city)
+        - One-hot encodes medium-cardinality categoricals
+        - Constructs and keeps ``severity`` and ``eventid`` for manual inspection
+        """
+        print(f"Loading raw GTD data from {input_path}...")
+
+        lower = input_path.lower()
+        if lower.endswith(".csv"):
+            df = pd.read_csv(input_path, low_memory=False)
+        elif lower.endswith(".xlsx") or lower.endswith(".xls"):
+            df = pd.read_excel(input_path)
+        else:
+            # Fallback: try CSV then Excel
+            try:
+                df = pd.read_csv(input_path, low_memory=False)
+            except Exception:
+                df = pd.read_excel(input_path)
+
+        # Reuse visualization cleaner for basic sanity checks (coords, nkill/nwound, etc.)
+        df = self.clean_data(df)
+
+        # Construct severity (and keep it for manual inspection)
+        df["severity"] = df["nkill"].fillna(0) + df["nwound"].fillna(0)
+
+        # Drop casualty component columns and obvious leakage-prone fields
+        columns_to_drop = []
+
+        base_drop = [
+            "summary",
+            "scite1",
+            "scite2",
+            "scite3",
+            "dbsource",
+        ]
+        for col in base_drop:
+            if col in df.columns:
+                columns_to_drop.append(col)
+
+        # Drop all columns that start with 'scite', 'nkill', or 'nwound'
+        for col in df.columns:
+            if col.startswith("scite") or col.startswith("nkill") or col.startswith("nwound"):
+                # keep nkill/nwound only for severity; they are not used as features
+                if col not in ["nkill", "nwound"]:
+                    columns_to_drop.append(col)
+
+        # Drop derived/aggregated casualty-like columns
+        outcome_keywords = ["casualty", "death", "fatal"]
+        aggregation_terms = ["sum", "total", "count", "mean", "avg", "max", "min"]
+        for col in df.columns:
+            col_lower = col.lower()
+            if any(k in col_lower for k in outcome_keywords):
+                if col not in columns_to_drop and col not in ["severity"]:
+                    if any(a in col_lower for a in aggregation_terms):
+                        columns_to_drop.append(col)
+
+        # Drop known high-cardinality categoricals
+        for candidate in ["gname", "city", "provstate", "location"]:
+            if candidate in df.columns:
+                n_unique = df[candidate].nunique(dropna=True)
+                if n_unique > 100:
+                    columns_to_drop.append(candidate)
+
+        # De-duplicate
+        columns_to_drop = sorted(set(columns_to_drop))
+        if columns_to_drop:
+            print(f"Dropping {len(columns_to_drop)} high-cardinality/leakage columns: {columns_to_drop}")
+            df = df.drop(columns=columns_to_drop)
+
+        # One-hot encode medium-cardinality categoricals
+        medium_cat_cols = [
+            "attacktype1_txt",
+            "weaptype1_txt",
+            "targtype1_txt",
+            "region_txt",
+            "country_txt",
+        ]
+        present_cats = [c for c in medium_cat_cols if c in df.columns]
+        df = pd.get_dummies(df, columns=present_cats, drop_first=drop_first)
+
+        # Keep eventid and severity for manual comparisons (do not drop them here)
+        if "eventid" not in df.columns:
+            print("Warning: 'eventid' not found in columns; it will not be available for manual comparison.")
+
+        # Save model-ready CSV
+        out_dir = os.path.dirname(output_path) or "."
+        os.makedirs(out_dir, exist_ok=True)
+        df.to_csv(output_path, index=False)
+        print(f"Saved model-ready CSV to: {output_path}")
+
+        return df
     
     def create_aggregated_data(self, df, group_by='city'):
         """Create aggregated data for better visualization"""

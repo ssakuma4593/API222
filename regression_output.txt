@@ -41,3 +41,79 @@ Top 10 most important features:
   10. target1_Open-Air Market: 0.6798
 Visualization saved to lasso_features.png
 LASSO selected features saved to lasso_selected_features.csv
+Loading model-ready dataset from data/gtd_model_ready.csv
+Loading model-ready dataset from data/gtd_model_ready.csv
+
+==================================================
+Fitting Linear Regression Model
+==================================================
+Preparing data for regression analysis...
+Dropping 12 non-feature / leakage-prone columns: ['dbsource', 'eventid', 'nkill', 'nkillter', 'nkillus', 'nwound', 'nwoundte', 'nwoundus', 'scite1', 'scite2', 'severity', 'summary']
+Prepared 3522 features for regression
+Train R²: 0.7344
+Test R²: -7.5854
+
+==================================================
+Fitting LASSO Regression Model
+==================================================
+Preparing data for regression analysis...
+Dropping 12 non-feature / leakage-prone columns: ['dbsource', 'eventid', 'nkill', 'nkillter', 'nkillus', 'nwound', 'nwoundte', 'nwoundus', 'scite1', 'scite2', 'severity', 'summary']
+Prepared 3522 features for regression
+Best alpha: 0.279469
+Train R²: 0.4981
+Test R²: 0.0654
+
+Number of features selected: 95 out of 3522
+
+Top 10 most important features:
+  1. target1_Guesthouse: 1.6430
+  2. target1_Gold Mine: 1.2427
+  3. corp1_Daletti Village: 1.2373
+  4. corp1_Solhan Village: 1.2287
+  5. suicide: 0.9842
+  6. corp1_Tchombangou Village: 0.9065
+  7. weapsubtype1_txt_Vehicle: 0.6971
+  8. target1_Open-Air Market: 0.6887
+  9. corp1_Kwapre village: 0.6459
+  10. corp1_Kodyel Village: 0.6076
+Visualization saved to lasso_features.png
+LASSO selected features saved to lasso_selected_features.csv
+
+=== Model-ready dataset run (reduced feature set) ===
+Saved model-ready CSV to: data/gtd_model_ready.csv
+Loading model-ready dataset from data/gtd_model_ready.csv
+
+==================================================
+Fitting Linear Regression Model
+==================================================
+Preparing data for regression analysis...
+Dropping 2 non-feature / leakage-prone columns: ["eventid", "severity"]
+Prepared 132 features for regression
+Train R²: 0.1897
+Test R²: 0.0510
+
+==================================================
+Fitting LASSO Regression Model
+==================================================
+Preparing data for regression analysis...
+Dropping 2 non-feature / leakage-prone columns: ["eventid", "severity"]
+Prepared 132 features for regression
+Best alpha: 0.064843
+Train R²: 0.1826
+Test R²: 0.0439
+
+Number of features selected: 66 out of 132
+
+Top 10 most important features:
+  1. suicide: 1.9021
+  2. weaptype1_txt_Explosives: 1.2378
+  3. attacktype1_txt_Bombing/Explosion: -1.1978
+  4. country_txt_Niger: 1.0060
+  5. country_txt_Ethiopia: 0.9173
+  6. region_txt_South Asia: 0.8631
+  7. targtype1_txt_Military: 0.6359
+  8. region_txt_Sub-Saharan Africa: 0.6082
+  9. country_txt_Burkina Faso: 0.5807
+  10. success: 0.5624
+Visualization saved to lasso_features.png
+LASSO selected features saved to lasso_selected_features.csv

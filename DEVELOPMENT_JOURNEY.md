@@ -120,7 +120,7 @@ Much more realistic results! The negative test R² for linear regression indicat
 ## Files Created/Modified
 
 - `regression_models.py` - New module for regression analysis
-- `data_processor.py` - Cleaned to remove regression code
+- `visualization_data_processor.py` - Cleaned to remove regression code
 - `regression_output.txt` - Full regression results
 - `lasso_features.png` - Visualization of top features
 - `lasso_selected_features.csv` - CSV of selected features

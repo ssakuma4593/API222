@@ -10,17 +10,16 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import numpy as np
 
-def extract_country_name(row):
-    """Extract country name from one-hot encoded country columns"""
-    country_cols = [col for col in row.index if col.startswith('country_txt__')]
-    for col in country_cols:
-        if row.get(col) == True or row.get(col) == 1:
-            # Extract country name from column name (remove 'country_txt__' prefix)
-            return col.replace('country_txt__', '')
-    return 'Unknown'
 
-def load_and_prepare_data(csv_path='data/gtd_cleaned.csv'):
-    """Load and prepare data for visualization"""
+def load_and_prepare_data(csv_path='data/gtd_visualization.csv'):
+    """Load and prepare data for visualization.
+
+    Expects a slim CSV created by
+    ``TerrorismDataProcessor.create_visualization_dataset_from_raw()``
+    with (at least) the columns:
+    eventid, iyear, city, country_txt, latitude, longitude,
+    severity, gname, attacktype1_txt.
+    """
     print("Loading data...")
     df = pd.read_csv(csv_path)
     
@@ -44,12 +43,8 @@ def load_and_prepare_data(csv_path='data/gtd_cleaned.csv'):
     df['severity'] = pd.to_numeric(df['severity'], errors='coerce')
     df = df[df['severity'] >= 0]
     
-    # Extract country name from one-hot encoded columns
-    print("Extracting country names from one-hot encoded columns...")
-    df['country_txt'] = df.apply(extract_country_name, axis=1)
-    
     # Fill missing text fields
-    text_columns = ['city', 'gname']
+    text_columns = ['city', 'gname', 'country_txt', 'attacktype1_txt']
     for col in text_columns:
         if col in df.columns:
             df[col] = df[col].fillna('Unknown')
@@ -92,16 +87,12 @@ def create_world_map(df, output_file='world_map_attacks.html',
         hover_text += f"<b>Severity:</b> {row['severity']:.0f}<br>"
         if pd.notna(row.get('iyear')):
             hover_text += f"<b>Year:</b> {int(row['iyear'])}<br>"
-        if pd.notna(row.get('gname')) and str(row.get('gname')) != 'Unknown' and str(row.get('gname')) != 'nan':
+        if pd.notna(row.get('gname')) and str(row.get('gname')) not in ('Unknown', 'nan'):
             hover_text += f"<b>Group:</b> {row['gname']}<br>"
-        # Extract attack type from one-hot encoded columns
-        attack_type_cols = [col for col in row.index if col.startswith('attacktype1_txt__')]
-        attack_types = []
-        for col in attack_type_cols:
-            if row.get(col) == True or row.get(col) == 1:
-                attack_types.append(col.replace('attacktype1_txt__', ''))
-        if attack_types:
-            hover_text += f"<b>Attack Type:</b> {', '.join(attack_types)}"
+        # Use attacktype1_txt directly if available
+        attack_type = row.get('attacktype1_txt')
+        if pd.notna(attack_type) and str(attack_type) not in ('Unknown', 'nan'):
+            hover_text += f"<b>Attack Type:</b> {attack_type}"
         hover_data.append(hover_text)
     
     df['hover_text'] = hover_data

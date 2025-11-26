@@ -14,7 +14,7 @@ API222/
     terrorism_data.xlsx
     gtd_cleaned.csv      # cleaned GTD (for maps/EDA), not tracked by git
     gtd_model_ready.csv  # model‑ready ML dataset, not tracked by git
-  data_processor.py
+  visualization_data_processor.py
   world_map_visualization.py
   gtd_cleaner.py
   regression_models.py
