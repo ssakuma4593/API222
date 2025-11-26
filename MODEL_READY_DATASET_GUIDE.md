@@ -2,7 +2,11 @@
 
 ## Overview
 
-Creating a model-ready CSV dataset that can be used for both linear models (LASSO) and tree-based models (Random Forest, XGBoost) is highly recommended. This guide explains why and how.
+Creating a model-ready CSV dataset that can be used for both linear models (LASSO) and tree-based models (Random Forest, XGBoost) is highly recommended.  
+In this project, the **base cleaner** (`gtd_cleaner.py`) produces:
+
+- `data/gtd_cleaned.csv` – cleaned GTD for maps/EDA  
+- `data/gtd_model_ready.csv` – model-ready dataset for regression models
 
 ## Why Create a Model-Ready CSV?
 
@@ -102,31 +106,28 @@ rf_model.fit(X, y)
 
 ## Creating the Model-Ready Dataset
 
-### Using the Function:
+### Recommended: Use the base cleaner (`gtd_cleaner.py`)
 
-```python
-from regression_models import TerrorismRegressionModels
-import pandas as pd
+From the project root, with your virtualenv activated:
 
-# Load your cleaned GTD data
-df = pd.read_csv("data/gtd_cleaned.csv")
+```bash
+source .venv/bin/activate
 
-# Create model-ready dataset
-regressor = TerrorismRegressionModels()
-model_ready_df = regressor.create_model_ready_dataset(
-    df,
-    output_path="data/gtd_model_ready.csv",
-    drop_high_cardinality=True,  # Drop gname, city, etc.
-    keep_severity=True            # Keep target variable in dataset
-)
+# Step 1: (one time) create cleaned GTD from the raw Excel
+python gtd_cleaner.py "/path/to/globalterrorismdb.xlsx" \
+  -o data/gtd_cleaned.csv --drop-missing-geo --drop-first
+
+# Step 2: (for modeling) create the model-ready CSV from the cleaned GTD
+python gtd_cleaner.py data/gtd_cleaned.csv \
+  -o data/gtd_model_ready.csv --drop-first
 ```
 
-### What It Does:
+### What the model-ready CSV contains
 
-1. **Removes data leakage columns** (same logic as `prepare_regression_data`)
-2. **Optionally drops high-cardinality columns** (group names, cities)
-3. **Keeps categorical columns as-is** (can encode later based on model type)
-4. **Saves to CSV** for easy reuse
+1. Cleaned numeric columns (including `severity`) and core binary indicators (`success`, `suicide`)
+2. One-hot encoded **medium-cardinality categoricals** (`attacktype1_txt`, `weaptype1_txt`, `targtype1_txt`, `region_txt`, `country_txt`)
+3. Optional dropping of very **high-cardinality categoricals** (`gname`, `city`, etc.) to control feature explosion
+4. A format that can be reused for both linear and tree-based models without re-running the full cleaning pipeline
 
 ### Output:
 - CSV file with feature-selected columns
@@ -175,38 +176,22 @@ model_ready_df = regressor.create_model_ready_dataset(
 ## Example Workflow
 
 ```python
-# Step 1: Create model-ready dataset (do this once)
-from regression_models import TerrorismRegressionModels
 import pandas as pd
+from regression_models import TerrorismRegressionModels
 
-df_cleaned = pd.read_csv("data/gtd_cleaned.csv")
-regressor = TerrorismRegressionModels()
-df_model_ready = regressor.create_model_ready_dataset(
-    df_cleaned,
-    output_path="data/gtd_model_ready.csv",
-    drop_high_cardinality=True
-)
-
-# Step 2: Use for LASSO (linear model)
+# Step 1: Load the model-ready dataset (created once via gtd_cleaner.py)
 df = pd.read_csv("data/gtd_model_ready.csv")
+
+# Step 2: Prepare features/target and fit LASSO
+regressor = TerrorismRegressionModels()
 X, y = regressor.prepare_regression_data(df)
 lasso_results = regressor.fit_lasso_regression(df)
 
-# Step 3: Use for Random Forest (tree model) - same dataset!
+# Step 3: Use the same dataset for a tree model (e.g., Random Forest)
 from sklearn.ensemble import RandomForestRegressor
-X, y = regressor.prepare_regression_data(df)  # Or handle encoding differently
+X, y = regressor.prepare_regression_data(df)  # or custom encoding for trees
 rf_model = RandomForestRegressor()
 rf_model.fit(X, y)
-
-# Step 4: Compare models using same features
-models_dict = {
-    'LASSO': regressor.lasso_model,
-    'Random Forest': rf_model
-}
-comparison = regressor.compare_models(
-    models_dict, X_train, X_test, y_train, y_test,
-    scalers_dict={'LASSO': regressor.scaler}
-)
 ```
 
 ## Summary

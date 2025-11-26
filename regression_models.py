@@ -5,10 +5,106 @@ Linear and LASSO regression models for predicting attack severity
 
 import pandas as pd
 import numpy as np
+import os
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 from sklearn.linear_model import LinearRegression, LassoCV
 import matplotlib.pyplot as plt
+
+
+# Default path to the raw Global Terrorism Database file
+RAW_GTD_PATH = "data/globalterrorismdb_2021Jan-June_1222dist.xlsx"
+
+
+def create_model_ready_from_raw(
+    input_path: str = RAW_GTD_PATH,
+    output_path: str = "data/gtd_model_ready.csv",
+    drop_first: bool = True,
+) -> pd.DataFrame:
+    """Create a model-ready CSV directly from the raw GTD file.
+
+    This:
+    - Loads the original Global Terrorism Database CSV/Excel
+    - Cleans casualty fields and constructs ``severity``
+    - Keeps ONLY the columns intended for modeling + reference:
+        * eventid  (for manual comparison only)
+        * severity (target, nkill + nwound)
+        * iyear, imonth, iday, latitude, longitude, success, suicide
+        * attacktype1_txt, weaptype1_txt, targtype1_txt,
+          region_txt, country_txt
+    - One-hot encodes the medium-cardinality categoricals
+      (attacktype1_txt, weaptype1_txt, targtype1_txt,
+       region_txt, country_txt)
+    - Saves a compact model-ready CSV while leaving eventid and severity
+      available for inspection (they are dropped from X later).
+    """
+    print(f"Loading raw GTD data from {input_path}...")
+
+    lower = input_path.lower()
+    if lower.endswith(".csv"):
+        df = pd.read_csv(input_path, low_memory=False)
+    elif lower.endswith(".xlsx") or lower.endswith(".xls"):
+        df = pd.read_excel(input_path)
+    else:
+        # Fallback: try CSV then Excel
+        try:
+            df = pd.read_csv(input_path, low_memory=False)
+        except Exception:
+            df = pd.read_excel(input_path)
+
+    # Basic casualty cleaning
+    for col in ["nkill", "nwound"]:
+        if col in df.columns:
+            df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0)
+
+    # Construct severity (and keep it for manual inspection)
+    if {"nkill", "nwound"}.issubset(df.columns):
+        df["severity"] = df["nkill"] + df["nwound"]
+    else:
+        df["severity"] = np.nan
+
+    # Restrict to the exact set of columns we care about
+    cols_to_keep = [
+        "eventid",
+        "severity",
+        "iyear",
+        "imonth",
+        "iday",
+        "latitude",
+        "longitude",
+        "success",
+        "suicide",
+        "attacktype1_txt",
+        "weaptype1_txt",
+        "targtype1_txt",
+        "region_txt",
+        "country_txt",
+    ]
+    existing = [c for c in cols_to_keep if c in df.columns]
+    df = df[existing].copy()
+
+    # One-hot encode medium-cardinality categoricals
+    medium_cat_cols = [
+        "attacktype1_txt",
+        "weaptype1_txt",
+        "targtype1_txt",
+        "region_txt",
+        "country_txt",
+    ]
+    present_cats = [c for c in medium_cat_cols if c in df.columns]
+    if present_cats:
+        df = pd.get_dummies(df, columns=present_cats, drop_first=drop_first)
+
+    # Keep eventid and severity in the CSV (for manual comparison later).
+    if "eventid" not in df.columns:
+        print("Warning: 'eventid' not found in columns; it will not be available for manual comparison.")
+
+    out_dir = os.path.dirname(output_path) or "."
+    os.makedirs(out_dir, exist_ok=True)
+    df.to_csv(output_path, index=False)
+    print(f"Saved model-ready CSV to: {output_path}")
+
+    return df
 
 
 class TerrorismRegressionModels:
@@ -23,162 +119,95 @@ class TerrorismRegressionModels:
     def prepare_regression_data(self, df):
         """Prepare data for regression analysis.
 
-        Expects a \"model-ready\" dataframe where obvious data leakage
-        columns (identifiers, text, casualty components) have already
-        been removed. If you start from the raw cleaned GTD data,
-        prefer calling create_model_ready_dataset() once and then
-        re-using the saved CSV.
+        This function assumes that heavy-duty cleaning and feature
+        selection has already been done upstream by creating
+        ``data/gtd_model_ready.csv`` from the raw Global Terrorism
+        Database file.
+
+        Its responsibility is primarily to:
+        - Ensure there is a numeric ``severity`` target
+        - Drop remaining non-feature / leakage columns (including
+          ``eventid`` and casualty components)
+        - One-hot encode any remaining object (categorical) columns
+        - Return X (features) and y (target)
         """
         print("Preparing data for regression analysis...")
-        
-        # Create a copy to avoid modifying original data
+
+        # Work on a copy
         regression_df = df.copy()
-        
-        # Define target (y) and features (X)
-        # Target: total casualties = nkill + nwound
-        regression_df['severity'] = regression_df['nkill'].fillna(0) + regression_df['nwound'].fillna(0)
-        y = regression_df['severity']
-        
-        # Drop target, outcome variables, identifiers, and unstructured text to prevent data leakage
-        columns_to_drop = [
-            'severity',           # Target variable
-            'total_casualties',   # Same as target (nkill + nwound)
-            'eventid',            # Identifier, not a feature
-            'summary',            # Unstructured text, not useful as a feature
-        ]
-        
-        # Drop citation columns (scite1, scite2, scite3) - unstructured text
-        for col in regression_df.columns:
-            if col.startswith('scite'):
-                columns_to_drop.append(col)
-        
-        # Drop all columns that start with 'nkill' or 'nwound' (all casualty-related)
-        # These include: nkill, nwound, nkillter, nkillus, nwoundte, nwoundus, etc.
-        for col in regression_df.columns:
-            if col.startswith('nkill') or col.startswith('nwound'):
-                columns_to_drop.append(col)
-        
-        # Find and drop any other columns that might be outcomes
-        # Look for columns with names suggesting they're derived from casualties
-        outcome_keywords = ['casualty', 'death', 'fatal']
-        for col in regression_df.columns:
-            col_lower = col.lower()
-            if any(keyword in col_lower for keyword in outcome_keywords):
-                if col not in columns_to_drop:
-                    # Check if it's an aggregated/derived column
-                    if any(agg in col_lower for agg in ['sum', 'total', 'count', 'mean', 'avg', 'max', 'min']):
-                        columns_to_drop.append(col)
-        
-        # Remove duplicates and only drop columns that exist
-        columns_to_drop = list(set([col for col in columns_to_drop if col in regression_df.columns]))
-        
-        if columns_to_drop:
-            print(f"Dropping {len(columns_to_drop)} columns to prevent data leakage: {columns_to_drop}")
-        
-        X = regression_df.drop(columns=columns_to_drop)
-        
-        # Encode categorical variables
-        # Turn all non-numeric columns into dummy/indicator variables
-        X = pd.get_dummies(X, drop_first=True)
-        
-        # Handle missing values
-        # Fill NaN with 0 (or could use mean/median imputation)
-        X = X.fillna(0)
-        
-        print(f"Prepared {X.shape[1]} features for regression")
-        return X, y
 
-    def create_model_ready_dataset(
-        self,
-        df: pd.DataFrame,
-        output_path: str = "data/gtd_model_ready.csv",
-        drop_high_cardinality: bool = True,
-    ) -> pd.DataFrame:
-        """Create and save a \"model‑ready\" dataset for both linear and tree models.
+        # Ensure target severity exists; if not, construct it from nkill/nwound
+        if "severity" not in regression_df.columns:
+            if {"nkill", "nwound"}.issubset(regression_df.columns):
+                regression_df["severity"] = (
+                    regression_df["nkill"].fillna(0) + regression_df["nwound"].fillna(0)
+                )
+            else:
+                raise ValueError(
+                    "Input dataframe must contain either 'severity' or both 'nkill' and 'nwound'."
+                )
 
-        This:
-        - Constructs the severity target (nkill + nwound)
-        - Drops data‑leakage columns (casualty components, identifiers, text, derived outcomes)
-        - Optionally drops very high‑cardinality categoricals (e.g., group name, city)
-        - Keeps medium‑cardinality categoricals (attack type, weapon type, target type,
-          region, country) plus numeric features
+        y = regression_df["severity"]
 
-        The resulting CSV lives under data/ so it is ignored by git.
-        """
-        print("\n" + "=" * 60)
-        print("Creating model‑ready dataset (for linear and tree models)")
-        print("=" * 60)
-
-        model_df = df.copy()
-
-        # Ensure severity exists
-        if "severity" not in model_df.columns:
-            model_df["severity"] = model_df["nkill"].fillna(0) + model_df["nwound"].fillna(0)
-
+        # Drop non-feature / leakage-prone columns.
+        # This intentionally overlaps with earlier cleaning steps as a safeguard
+        # in case an older version of the model-ready CSV is used.
         columns_to_drop = []
 
-        # 1) Identifiers
-        if "eventid" in model_df.columns:
-            columns_to_drop.append("eventid")
-
-        # 2) Unstructured text and citations
-        if "summary" in model_df.columns:
-            columns_to_drop.append("summary")
-        for col in model_df.columns:
-            if col.startswith("scite"):
+        # Always drop target / obvious non-features
+        base_drop = [
+            "severity",
+            "total_casualties",
+            "eventid",
+            "summary",
+            "scite1",
+            "scite2",
+            "scite3",
+            "dbsource",
+        ]
+        for col in base_drop:
+            if col in regression_df.columns:
                 columns_to_drop.append(col)
 
-        # 3) Casualty components (data leakage)
-        for col in model_df.columns:
-            if col.startswith("nkill") or col.startswith("nwound"):
+        # Drop all columns that start with 'scite', 'nkill', or 'nwound'
+        for col in regression_df.columns:
+            if col.startswith("scite") or col.startswith("nkill") or col.startswith("nwound"):
                 columns_to_drop.append(col)
 
-        # 4) Derived/aggregated outcome columns (death/casualty/fatal + agg words)
+        # Drop derived/aggregated casualty-like columns
         outcome_keywords = ["casualty", "death", "fatal"]
         aggregation_terms = ["sum", "total", "count", "mean", "avg", "max", "min"]
-        for col in model_df.columns:
+        for col in regression_df.columns:
             col_lower = col.lower()
             if any(k in col_lower for k in outcome_keywords):
                 if col not in columns_to_drop and col not in ["severity"]:
                     if any(a in col_lower for a in aggregation_terms):
                         columns_to_drop.append(col)
 
-        # 5) Optional: drop very high‑cardinality categoricals that explode feature count
-        if drop_high_cardinality:
-            for candidate in ["gname", "city", "provstate", "location"]:
-                if candidate in model_df.columns:
-                    n_unique = model_df[candidate].nunique()
-                    if n_unique > 100:
-                        print(f"  Dropping high‑cardinality column '{candidate}' ({n_unique} unique values)")
-                        columns_to_drop.append(candidate)
+        # Drop known high-cardinality categoricals and their one-hot variants
+        for col in regression_df.columns:
+            col_lower = col.lower()
+            if col_lower.startswith("gname") or col_lower.startswith("city"):
+                columns_to_drop.append(col)
 
-        # Always drop duplicate of severity if present
-        if "total_casualties" in model_df.columns:
-            columns_to_drop.append("total_casualties")
-
-        # De‑duplicate and filter to existing columns
-        columns_to_drop = sorted(set(c for c in columns_to_drop if c in model_df.columns))
+        # De-duplicate and keep only existing columns
+        columns_to_drop = sorted(set(c for c in columns_to_drop if c in regression_df.columns))
 
         if columns_to_drop:
-            print(f"\nDropping {len(columns_to_drop)} columns from model‑ready dataset:")
-            print(f"  {columns_to_drop}")
+            print(f"Dropping {len(columns_to_drop)} non-feature / leakage-prone columns: {columns_to_drop}")
 
-        model_df = model_df.drop(columns=columns_to_drop)
+        X = regression_df.drop(columns=columns_to_drop)
 
-        # Simple summary
-        n_rows, n_cols = model_df.shape
-        cat_cols = model_df.select_dtypes(include=["object"]).columns.tolist()
-        num_cols = model_df.select_dtypes(include=[np.number]).columns.tolist()
+        # Encode any remaining object dtype columns (e.g., if data came from
+        # the visualization cleaner rather than the full model-ready CSV).
+        X = pd.get_dummies(X, drop_first=True)
 
-        print(f"\nFinal model‑ready shape: {n_rows} rows × {n_cols} columns")
-        print(f"  Numeric columns:     {len(num_cols)}")
-        print(f"  Categorical columns: {len(cat_cols)}")
+        # Simple missing-value handling
+        X = X.fillna(0)
 
-        # Save under data/ (ignored by git as per README)
-        model_df.to_csv(output_path, index=False)
-        print(f"\nSaved model‑ready CSV to: {output_path}")
+        print(f"Prepared {X.shape[1]} features for regression")
+        return X, y
 
-        return model_df
     
     def fit_linear_regression(self, df, test_size=0.2, random_state=42):
         """Fit a linear regression model to predict severity"""
@@ -323,24 +352,37 @@ class TerrorismRegressionModels:
 
 if __name__ == "__main__":
     # Example usage
-    import pandas as pd
-    from data_processor import TerrorismDataProcessor
-    
-    # Load cleaned data
-    df = pd.read_csv("data/gtd_cleaned.csv")
-    
-    # Process data
-    processor = TerrorismDataProcessor()
-    cleaned_data = processor.clean_data(df)
-    
-    # Fit regression models
+    #
+    # Workflow:
+    #   1) Check if data/gtd_model_ready.csv exists.
+    #   2) If it does NOT exist, create it from the raw GTD file via
+    #      create_model_ready_from_raw(), which:
+    #        - cleans the data
+    #        - drops high-cardinality & leakage-prone columns
+    #        - one-hot encodes medium-cardinality categoricals
+    #        - KEEPS eventid and severity in the CSV for manual comparison.
+    #   3) Load data/gtd_model_ready.csv and pass it into the regression
+    #      methods; prepare_regression_data() will then drop eventid and
+    #      severity (and other non-features) from the feature matrix X
+    #      while still using severity as the target y.
+
+    model_ready_path = "data/gtd_model_ready.csv"
+    if not os.path.exists(model_ready_path):
+        print(f"{model_ready_path} not found. Creating it from raw GTD data...")
+        create_model_ready_from_raw(RAW_GTD_PATH, output_path=model_ready_path)
+
+    print(f"Loading model-ready dataset from {model_ready_path}")
+    df = pd.read_csv(model_ready_path)
+
+    # Fit regression models (features will exclude eventid and severity;
+    # they remain only in the CSV for inspection)
     regressor = TerrorismRegressionModels()
-    
+
     # Fit linear regression
-    linear_results = regressor.fit_linear_regression(cleaned_data)
-    
+    linear_results = regressor.fit_linear_regression(df)
+
     # Fit LASSO regression
-    lasso_results = regressor.fit_lasso_regression(cleaned_data)
+    lasso_results = regressor.fit_lasso_regression(df)
     
     # Visualize LASSO features
     regressor.visualize_lasso_features(top_n=20, save_path="lasso_features.png")

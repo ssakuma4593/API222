@@ -1,0 +1,67 @@
+,0
+suicide,1.9021311048410803
+weaptype1_txt_Explosives,1.237828802823027
+attacktype1_txt_Bombing/Explosion,-1.1977690971719994
+country_txt_Niger,1.006021496861328
+country_txt_Ethiopia,0.9173150186824612
+region_txt_South Asia,0.8631050050105089
+targtype1_txt_Military,0.6358558295218011
+region_txt_Sub-Saharan Africa,0.6082401915825035
+country_txt_Burkina Faso,0.5806653211040794
+success,0.5624454120031644
+targtype1_txt_Private Citizens & Property,0.42804620379589803
+country_txt_India,-0.39782076482092626
+region_txt_Middle East & North Africa,-0.3844080978043184
+attacktype1_txt_Assassination,-0.3636836978724577
+attacktype1_txt_Unknown,0.3218336253596751
+attacktype1_txt_Facility/Infrastructure Attack,-0.314398994305346
+country_txt_Chad,0.2888403652265374
+country_txt_Yemen,0.2793045868470175
+country_txt_Syria,0.19643902688464124
+iday,-0.18434846011607972
+targtype1_txt_Utilities,-0.169297289054921
+country_txt_Pakistan,-0.1544342931917133
+targtype1_txt_Unknown,-0.1475017675179781
+country_txt_Iraq,-0.1426262445880029
+weaptype1_txt_Incendiary,-0.1403549586358001
+country_txt_Iran,-0.1295636100520282
+country_txt_Cameroon,-0.1286944618757759
+imonth,0.12799394394438138
+targtype1_txt_Terrorists/Non-State Militia,0.11625707781387715
+country_txt_Mozambique,-0.09870448142675377
+targtype1_txt_Transportation,0.089566661490016
+country_txt_South Sudan,0.07490580288905609
+country_txt_Chile,-0.0674498966450517
+targtype1_txt_Educational Institution,-0.06502607195177908
+country_txt_Djibouti,-0.06134247573258391
+attacktype1_txt_Hijacking,-0.05761330282169315
+country_txt_Myanmar,-0.056184908611900224
+country_txt_South Africa,-0.05510422452854527
+targtype1_txt_Food or Water Supply,-0.055007381557300325
+country_txt_Bangladesh,-0.05189129860304573
+targtype1_txt_Journalists & Media,-0.05063379843332452
+targtype1_txt_Government (Diplomatic),0.04868256427346945
+targtype1_txt_Government (General),-0.0476679265698386
+region_txt_Southeast Asia,-0.0470594426255174
+attacktype1_txt_Hostage Taking (Barricade Incident),0.04658418718303605
+country_txt_Mali,0.04407152828273883
+country_txt_Democratic Republic of the Congo,0.03659061820311434
+country_txt_United Kingdom,-0.03291414491332437
+targtype1_txt_NGO,-0.03000438717245971
+country_txt_Algeria,0.02657179221373285
+country_txt_Egypt,-0.025940855685236484
+country_txt_Peru,0.02593767808661425
+country_txt_Ukraine,-0.02288898084879558
+country_txt_Ivory Coast,-0.02270539992275801
+weaptype1_txt_Sabotage Equipment,-0.022141968715005376
+country_txt_Kenya,-0.021900302049281048
+country_txt_West Bank and Gaza Strip,-0.02037263583500068
+country_txt_Saudi Arabia,-0.015422739463521405
+weaptype1_txt_Melee,-0.014735268857621693
+country_txt_Sudan,-0.012573916108258767
+country_txt_Turkey,-0.012379626180815978
+region_txt_North America,-0.008688461749745918
+attacktype1_txt_Unarmed Assault,0.008517438033237438
+country_txt_Switzerland,0.008196279166898933
+targtype1_txt_Maritime,-0.006292141757892326
+country_txt_Colombia,0.0014406341885332952
