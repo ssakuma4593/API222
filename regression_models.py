@@ -324,23 +324,21 @@ class TerrorismRegressionModels:
 if __name__ == "__main__":
     # Example usage
     import pandas as pd
-    from data_processor import TerrorismDataProcessor
     
-    # Load cleaned data
-    df = pd.read_csv("data/gtd_cleaned.csv")
+    # Load model-ready / base‑cleaned data.
+    # This CSV should be produced once up‑front by the base cleaner
+    # (see gtd_cleaner.clean_gtd or CLI) and then reused across
+    # regression experiments so we don't re-clean in this module.
+    df = pd.read_csv("data/gtd_model_ready.csv")
     
-    # Process data
-    processor = TerrorismDataProcessor()
-    cleaned_data = processor.clean_data(df)
-    
-    # Fit regression models
+    # Fit regression models directly on the model-ready dataset
     regressor = TerrorismRegressionModels()
     
     # Fit linear regression
-    linear_results = regressor.fit_linear_regression(cleaned_data)
+    linear_results = regressor.fit_linear_regression(df)
     
     # Fit LASSO regression
-    lasso_results = regressor.fit_lasso_regression(cleaned_data)
+    lasso_results = regressor.fit_lasso_regression(df)
     
     # Visualize LASSO features
     regressor.visualize_lasso_features(top_n=20, save_path="lasso_features.png")

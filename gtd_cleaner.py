@@ -172,6 +172,7 @@ def clean_gtd(
     required_columns_for_missing_drop: Optional[Iterable[str]] = None,
     drop_missing_geo: bool = False,
     drop_first_for_dummies: bool = False,
+    drop_high_cardinality: bool = True,
 ) -> pd.DataFrame:
     """Load and clean the GTD CSV for machine learning.
 
@@ -182,8 +183,12 @@ def clean_gtd(
       4) Clean geo columns (latitude, longitude); add geo_missing; optional drop
       5) Remove duplicates by eventid
       6) Drop columns with >50% missing (except required)
-      7) One-hot encode selected categorical columns
-      8) Add severity feature
+      7) Optionally drop very high-cardinality categoricals
+      8) One-hot encode selected medium-cardinality categorical columns
+      9) Add severity feature
+
+    The resulting dataframe is numeric-heavy and suitable as a base for
+    both LASSO and tree-based models.
     """
     df = load_gtd_file(csv_path)
 
@@ -222,7 +227,18 @@ def clean_gtd(
         default_required.update(required_columns_for_missing_drop)
     df = drop_high_missing_columns(df, threshold=0.5, required_columns=default_required)
 
-    # 7) one-hot encoding for selected categoricals
+    # 7) Optionally drop known high-cardinality categoricals so that later
+    #    one-hot encoding or modeling won't explode the feature space.
+    if drop_high_cardinality:
+        high_cardinality_candidates = ["gname", "city", "provstate", "location"]
+        for col in high_cardinality_candidates:
+            if col in df.columns:
+                n_unique = df[col].nunique(dropna=True)
+                # Use a conservative threshold; these columns are often 100s–1000s of levels
+                if n_unique > 100:
+                    df = df.drop(columns=[col])
+
+    # 8) one-hot encoding for selected (medium-cardinality) categoricals
     df = one_hot_encode(
         df,
         categorical_columns=list(categorical_columns or DEFAULT_CATEGORICAL_COLS),
@@ -230,7 +246,7 @@ def clean_gtd(
         prefix_sep="__",
     )
 
-    # 8) severity
+    # 9) severity
     df = add_severity_feature(df, kill_col="nkill", wound_col="nwound")
 
     return df
