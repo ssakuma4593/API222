@@ -13,7 +13,7 @@ import matplotlib.pyplot as plt
 
 
 # Default path to the raw Global Terrorism Database file
-RAW_GTD_PATH = "data/globalterrorismdb_2021Jan-June_1222dist.xlsx"
+RAW_GTD_PATH = "data/globalterrorismdb_0522dist.xlsx"
 
 
 def create_model_ready_from_raw(
@@ -306,6 +306,255 @@ class TerrorismRegressionModels:
             'y_test': y_test
         }
     
+    def visualize_linear_predictions(self, results, figsize=(10, 6), save_path=None):
+        """Visualize linear regression predictions vs actual values"""
+        if self.linear_model is None:
+            print("Error: Linear model not fitted yet. Call fit_linear_regression() first.")
+            return
+        
+        X_test_scaled = self.scaler.transform(results['X_test'])
+        y_test = results['y_test']
+        y_pred = self.linear_model.predict(X_test_scaled)
+        
+        # Use percentiles to set better axis limits (focus on 95% of data)
+        x_min = np.percentile(y_test, 1)
+        x_max = np.percentile(y_test, 99)
+        y_min = min(np.percentile(y_pred, 1), x_min)
+        y_max = max(np.percentile(y_pred, 99), x_max)
+        
+        # Add small padding
+        x_range = x_max - x_min
+        y_range = y_max - y_min
+        x_min = max(0, x_min - 0.05 * x_range)
+        x_max = x_max + 0.05 * x_range
+        y_min = max(0, y_min - 0.05 * y_range)
+        y_max = y_max + 0.05 * y_range
+        
+        fig, axes = plt.subplots(1, 2, figsize=figsize)
+        
+        # Scatter plot: predicted vs actual
+        axes[0].scatter(y_test, y_pred, alpha=0.5, s=10)
+        # Perfect prediction line using the axis limits
+        plot_min = min(x_min, y_min)
+        plot_max = max(x_max, y_max)
+        axes[0].plot([plot_min, plot_max], [plot_min, plot_max], 'r--', lw=2, label='Perfect Prediction')
+        axes[0].set_xlim(x_min, x_max)
+        axes[0].set_ylim(y_min, y_max)
+        axes[0].set_xlabel('Actual Severity')
+        axes[0].set_ylabel('Predicted Severity')
+        axes[0].set_title(f'Linear Regression: Predicted vs Actual\nTest R² = {results["test_r2"]:.4f}')
+        axes[0].legend()
+        axes[0].grid(True, alpha=0.3)
+        
+        # Residual plot with better scaling
+        residuals = y_test - y_pred
+        pred_min = np.percentile(y_pred, 1)
+        pred_max = np.percentile(y_pred, 99)
+        res_min = np.percentile(residuals, 1)
+        res_max = np.percentile(residuals, 99)
+        pred_range = pred_max - pred_min
+        res_range = res_max - res_min
+        
+        axes[1].scatter(y_pred, residuals, alpha=0.5, s=10)
+        axes[1].axhline(y=0, color='r', linestyle='--', lw=2)
+        axes[1].set_xlim(max(0, pred_min - 0.05 * pred_range), pred_max + 0.05 * pred_range)
+        axes[1].set_ylim(res_min - 0.1 * res_range, res_max + 0.1 * res_range)
+        axes[1].set_xlabel('Predicted Severity')
+        axes[1].set_ylabel('Residuals')
+        axes[1].set_title('Linear Regression: Residual Plot')
+        axes[1].grid(True, alpha=0.3)
+        
+        plt.tight_layout()
+        
+        if save_path:
+            plt.savefig(save_path, dpi=300, bbox_inches='tight')
+            print(f"Linear regression visualization saved to {save_path}")
+        
+        plt.show()
+    
+    def visualize_linear_predictions_log_scale(self, results, figsize=(10, 6), save_path=None):
+        """Visualize linear regression predictions vs actual values on log scale"""
+        if self.linear_model is None:
+            print("Error: Linear model not fitted yet. Call fit_linear_regression() first.")
+            return
+        
+        X_test_scaled = self.scaler.transform(results['X_test'])
+        y_test = results['y_test']
+        y_pred = self.linear_model.predict(X_test_scaled)
+        
+        # Filter out zeros and negative values for log scale
+        mask = (y_test > 0) & (y_pred > 0)
+        y_test_log = y_test[mask]
+        y_pred_log = y_pred[mask]
+        
+        fig, axes = plt.subplots(1, 2, figsize=figsize)
+        
+        # Scatter plot: predicted vs actual on log scale
+        axes[0].scatter(y_test_log, y_pred_log, alpha=0.5, s=10)
+        # Perfect prediction line on log scale
+        min_val = min(y_test_log.min(), y_pred_log.min())
+        max_val = max(y_test_log.max(), y_pred_log.max())
+        axes[0].plot([min_val, max_val], [min_val, max_val], 'r--', lw=2, label='Perfect Prediction')
+        axes[0].set_xscale('log')
+        axes[0].set_yscale('log')
+        axes[0].set_xlabel('Actual Severity (log scale)')
+        axes[0].set_ylabel('Predicted Severity (log scale)')
+        axes[0].set_title(f'Linear Regression: Predicted vs Actual (Log Scale)\nTest R² = {results["test_r2"]:.4f}')
+        axes[0].legend()
+        axes[0].grid(True, alpha=0.3, which='both')
+        
+        # Residual plot on log scale (log of predicted vs residuals)
+        residuals_log = y_test_log - y_pred_log
+        axes[1].scatter(y_pred_log, residuals_log, alpha=0.5, s=10)
+        axes[1].axhline(y=0, color='r', linestyle='--', lw=2)
+        axes[1].set_xscale('log')
+        axes[1].set_xlabel('Predicted Severity (log scale)')
+        axes[1].set_ylabel('Residuals')
+        axes[1].set_title('Linear Regression: Residual Plot (Log Scale)')
+        axes[1].grid(True, alpha=0.3, which='both')
+        
+        plt.tight_layout()
+        
+        if save_path:
+            plt.savefig(save_path, dpi=300, bbox_inches='tight')
+            print(f"Linear regression log-scale visualization saved to {save_path}")
+        
+        plt.show()
+    
+    def visualize_linear_regression_annotated(self, results, figsize=(10, 8), save_path=None):
+        """Create an annotated log-scale visualization similar to the reference image"""
+        if self.linear_model is None:
+            print("Error: Linear model not fitted yet. Call fit_linear_regression() first.")
+            return
+        
+        X_test_scaled = self.scaler.transform(results['X_test'])
+        y_test = results['y_test']
+        y_pred = self.linear_model.predict(X_test_scaled)
+        
+        # Filter out zeros and negative values for log scale
+        mask = (y_test > 0) & (y_pred > 0)
+        y_test_log = y_test[mask]
+        y_pred_log = y_pred[mask]
+        
+        # Calculate R² on the filtered data
+        from sklearn.metrics import r2_score
+        r2_filtered = r2_score(y_test_log, y_pred_log)
+        
+        fig, ax = plt.subplots(1, 1, figsize=figsize)
+        
+        # Scatter plot: predicted vs actual on log scale
+        # Use red color with transparency to match the reference
+        ax.scatter(y_test_log, y_pred_log, alpha=0.4, s=15, color='red', edgecolors='none')
+        
+        # Perfect prediction line (black dashed)
+        min_val = min(y_test_log.min(), y_pred_log.min())
+        max_val = max(y_test_log.max(), y_pred_log.max())
+        ax.plot([min_val, max_val], [min_val, max_val], 'k--', lw=2, label='Perfect Prediction')
+        
+        # Set log scale
+        ax.set_xscale('log')
+        ax.set_yscale('log')
+        ax.set_xlabel('Actual Severity (Log Scale)', fontsize=12)
+        ax.set_ylabel('Predicted Severity (Log Scale)', fontsize=12)
+        ax.set_title(f'Linear Regression (R² = {r2_filtered:.2f})', fontsize=14, fontweight='bold')
+        ax.grid(True, alpha=0.3, which='both', linestyle='-', linewidth=0.5)
+        
+        # Add annotation with arrow pointing to the main cluster
+        # Find the center of the main cluster (median values)
+        median_actual = np.median(y_test_log)
+        median_pred = np.median(y_pred_log)
+        
+        # Calculate the position for the annotation
+        # Place it to the upper right of the cluster
+        annotation_x = median_actual * 1.5
+        annotation_y = median_pred * 0.7
+        
+        # Text describing the model behavior
+        annotation_text = ("Shows systematic underestimation of high-severity events,\n"
+                           "with predictions tightly clustered and failing to capture outliers.")
+        
+        # Add annotation with arrow
+        ax.annotate(annotation_text,
+                   xy=(median_actual, median_pred),  # Point to annotate
+                   xytext=(annotation_x, annotation_y),  # Text position
+                   fontsize=10,
+                   bbox=dict(boxstyle='round,pad=0.5', facecolor='white', alpha=0.8, edgecolor='gray'),
+                   arrowprops=dict(arrowstyle='->', connectionstyle='arc3,rad=0.2', color='black', lw=1.5))
+        
+        plt.tight_layout()
+        
+        if save_path:
+            plt.savefig(save_path, dpi=300, bbox_inches='tight')
+            print(f"Annotated linear regression visualization saved to {save_path}")
+        
+        plt.show()
+    
+    def visualize_lasso_predictions(self, results, figsize=(10, 6), save_path=None):
+        """Visualize LASSO regression predictions vs actual values"""
+        if self.lasso_model is None:
+            print("Error: LASSO model not fitted yet. Call fit_lasso_regression() first.")
+            return
+        
+        X_test_scaled = self.scaler.transform(results['X_test'])
+        y_test = results['y_test']
+        y_pred = self.lasso_model.predict(X_test_scaled)
+        
+        # Use percentiles to set better axis limits (focus on 95% of data)
+        x_min = np.percentile(y_test, 1)
+        x_max = np.percentile(y_test, 99)
+        y_min = min(np.percentile(y_pred, 1), x_min)
+        y_max = max(np.percentile(y_pred, 99), x_max)
+        
+        # Add small padding
+        x_range = x_max - x_min
+        y_range = y_max - y_min
+        x_min = max(0, x_min - 0.05 * x_range)
+        x_max = x_max + 0.05 * x_range
+        y_min = max(0, y_min - 0.05 * y_range)
+        y_max = y_max + 0.05 * y_range
+        
+        fig, axes = plt.subplots(1, 2, figsize=figsize)
+        
+        # Scatter plot: predicted vs actual
+        axes[0].scatter(y_test, y_pred, alpha=0.5, s=10)
+        # Perfect prediction line using the axis limits
+        plot_min = min(x_min, y_min)
+        plot_max = max(x_max, y_max)
+        axes[0].plot([plot_min, plot_max], [plot_min, plot_max], 'r--', lw=2, label='Perfect Prediction')
+        axes[0].set_xlim(x_min, x_max)
+        axes[0].set_ylim(y_min, y_max)
+        axes[0].set_xlabel('Actual Severity')
+        axes[0].set_ylabel('Predicted Severity')
+        axes[0].set_title(f'LASSO Regression: Predicted vs Actual\nTest R² = {results["test_r2"]:.4f}, Alpha = {results["best_alpha"]:.6f}')
+        axes[0].legend()
+        axes[0].grid(True, alpha=0.3)
+        
+        # Residual plot with better scaling
+        residuals = y_test - y_pred
+        pred_min = np.percentile(y_pred, 1)
+        pred_max = np.percentile(y_pred, 99)
+        res_min = np.percentile(residuals, 1)
+        res_max = np.percentile(residuals, 99)
+        pred_range = pred_max - pred_min
+        res_range = res_max - res_min
+        
+        axes[1].scatter(y_pred, residuals, alpha=0.5, s=10)
+        axes[1].axhline(y=0, color='r', linestyle='--', lw=2)
+        axes[1].set_xlim(max(0, pred_min - 0.05 * pred_range), pred_max + 0.05 * pred_range)
+        axes[1].set_ylim(res_min - 0.1 * res_range, res_max + 0.1 * res_range)
+        axes[1].set_xlabel('Predicted Severity')
+        axes[1].set_ylabel('Residuals')
+        axes[1].set_title('LASSO Regression: Residual Plot')
+        axes[1].grid(True, alpha=0.3)
+        
+        plt.tight_layout()
+        
+        if save_path:
+            plt.savefig(save_path, dpi=300, bbox_inches='tight')
+            print(f"LASSO regression visualization saved to {save_path}")
+        
+        plt.show()
+    
     def visualize_lasso_features(self, top_n=20, figsize=(8, 6), save_path=None):
         """Visualize top features from LASSO model"""
         if self.lasso_model is None:
@@ -331,6 +580,68 @@ class TerrorismRegressionModels:
         if save_path:
             plt.savefig(save_path, dpi=300, bbox_inches='tight')
             print(f"Visualization saved to {save_path}")
+        
+        plt.show()
+    
+    def visualize_model_comparison(self, linear_results, lasso_results, figsize=(14, 6), save_path=None):
+        """Compare linear and LASSO regression models side by side"""
+        if self.linear_model is None or self.lasso_model is None:
+            print("Error: Both models must be fitted first.")
+            return
+        
+        # Get predictions
+        X_test_linear = self.scaler.transform(linear_results['X_test'])
+        X_test_lasso = self.scaler.transform(lasso_results['X_test'])
+        y_test = linear_results['y_test']
+        y_pred_linear = self.linear_model.predict(X_test_linear)
+        y_pred_lasso = self.lasso_model.predict(X_test_lasso)
+        
+        # Use percentiles to set better axis limits (focus on 95% of data)
+        x_min = np.percentile(y_test, 1)
+        x_max = np.percentile(y_test, 99)
+        y_linear_min = min(np.percentile(y_pred_linear, 1), x_min)
+        y_linear_max = max(np.percentile(y_pred_linear, 99), x_max)
+        y_lasso_min = min(np.percentile(y_pred_lasso, 1), x_min)
+        y_lasso_max = max(np.percentile(y_pred_lasso, 99), x_max)
+        
+        # Use the same limits for both plots for fair comparison
+        plot_min = min(x_min, y_linear_min, y_lasso_min)
+        plot_max = max(x_max, y_linear_max, y_lasso_max)
+        
+        # Add small padding
+        plot_range = plot_max - plot_min
+        plot_min = max(0, plot_min - 0.05 * plot_range)
+        plot_max = plot_max + 0.05 * plot_range
+        
+        fig, axes = plt.subplots(1, 2, figsize=figsize)
+        
+        # Linear regression plot
+        axes[0].scatter(y_test, y_pred_linear, alpha=0.5, s=10, label='Predictions')
+        axes[0].plot([plot_min, plot_max], [plot_min, plot_max], 'r--', lw=2, label='Perfect Prediction')
+        axes[0].set_xlim(plot_min, plot_max)
+        axes[0].set_ylim(plot_min, plot_max)
+        axes[0].set_xlabel('Actual Severity')
+        axes[0].set_ylabel('Predicted Severity')
+        axes[0].set_title(f'Linear Regression\nTest R² = {linear_results["test_r2"]:.4f}')
+        axes[0].legend()
+        axes[0].grid(True, alpha=0.3)
+        
+        # LASSO regression plot
+        axes[1].scatter(y_test, y_pred_lasso, alpha=0.5, s=10, label='Predictions')
+        axes[1].plot([plot_min, plot_max], [plot_min, plot_max], 'r--', lw=2, label='Perfect Prediction')
+        axes[1].set_xlim(plot_min, plot_max)
+        axes[1].set_ylim(plot_min, plot_max)
+        axes[1].set_xlabel('Actual Severity')
+        axes[1].set_ylabel('Predicted Severity')
+        axes[1].set_title(f'LASSO Regression\nTest R² = {lasso_results["test_r2"]:.4f}, α = {lasso_results["best_alpha"]:.6f}')
+        axes[1].legend()
+        axes[1].grid(True, alpha=0.3)
+        
+        plt.tight_layout()
+        
+        if save_path:
+            plt.savefig(save_path, dpi=300, bbox_inches='tight')
+            print(f"Model comparison visualization saved to {save_path}")
         
         plt.show()
     
@@ -384,9 +695,44 @@ if __name__ == "__main__":
     # Fit LASSO regression
     lasso_results = regressor.fit_lasso_regression(df)
     
+    # Visualize linear regression
+    print("\n" + "="*50)
+    print("Generating Linear Regression Visualizations")
+    print("="*50)
+    regressor.visualize_linear_predictions(linear_results, save_path="linear_regression_outputs.png")
+    
+    # Visualize linear regression on log scale
+    regressor.visualize_linear_predictions_log_scale(linear_results, save_path="linear_regression_log_scale.png")
+    
+    # Visualize linear regression with annotation (matching reference style)
+    regressor.visualize_linear_regression_annotated(linear_results, save_path="linear_regression_annotated.png")
+    
+    # Visualize LASSO regression
+    print("\n" + "="*50)
+    print("Generating LASSO Regression Visualizations")
+    print("="*50)
+    regressor.visualize_lasso_predictions(lasso_results, save_path="lasso_regression_outputs.png")
+    
     # Visualize LASSO features
     regressor.visualize_lasso_features(top_n=20, save_path="lasso_features.png")
     
+    # Compare both models
+    print("\n" + "="*50)
+    print("Generating Model Comparison Visualization")
+    print("="*50)
+    regressor.visualize_model_comparison(linear_results, lasso_results, save_path="model_comparison.png")
+    
     # Save LASSO features to CSV
     regressor.save_lasso_features("lasso_selected_features.csv")
+    
+    print("\n" + "="*50)
+    print("Analysis Complete!")
+    print("="*50)
+    print("Generated visualizations:")
+    print("  - linear_regression_outputs.png")
+    print("  - linear_regression_log_scale.png")
+    print("  - linear_regression_annotated.png")
+    print("  - lasso_regression_outputs.png")
+    print("  - lasso_features.png")
+    print("  - model_comparison.png")
 
